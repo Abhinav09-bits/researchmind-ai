@@ -33,7 +33,7 @@ pydantic-settings==2.6.1
 pydantic-core==2.27.2
 
 # HTTP client
-httpx==0.28.0
+httpx==0.28.1
 
 # Environment
 python-dotenv==1.0.1
