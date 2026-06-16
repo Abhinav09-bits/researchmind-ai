@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import router as api_router
 from app.core.config import get_settings
-from app.core.dependencies import get_vector_store, get_bm25_index
+from app.core.dependencies import get_vector_store, get_bm25_index, get_reranker
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,6 +31,13 @@ async def lifespan(app: FastAPI):
     vector_store = get_vector_store()
     vector_store.ensure_collection_exists()
     logger.info(f"Qdrant collection '{settings.qdrant_collection_name}' is ready")
+
+    # Pre-warm reranker — downloads 25MB model at startup, not on first query
+    reranker = get_reranker()
+    if reranker.available:
+        logger.info("RerankerService ready (ms-marco-MiniLM-L-12-v2)")
+    else:
+        logger.warning("RerankerService unavailable — reranking will be skipped")
 
     # Load existing chunks into BM25 index so keyword search works immediately
     bm25_index = get_bm25_index()
