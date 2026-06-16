@@ -38,7 +38,7 @@ class YouTubeLoader:
     def load(self, url: str, document_id: str) -> list[ProcessedChunk]:
         """Fetch YouTube transcript and chunk it."""
         try:
-            from youtube_transcript_api import YouTubeTranscriptApi
+            from youtube_transcript_api import YouTubeTranscriptApi  # noqa: PLC0415
         except ImportError:
             raise RuntimeError("youtube-transcript-api not installed. Run: pip install youtube-transcript-api")
 
@@ -46,7 +46,8 @@ class YouTubeLoader:
         logger.info(f"Fetching transcript for video: {video_id}")
 
         try:
-            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+            api = YouTubeTranscriptApi()
+            transcript_list = api.fetch(video_id)
         except Exception as e:
             raise ValueError(
                 f"Could not fetch transcript for {url}. "
