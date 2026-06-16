@@ -30,7 +30,7 @@ qdrant-client==1.12.1
 # Data validation — pin to versions with Python 3.11 wheels
 pydantic==2.10.3
 pydantic-settings==2.6.1
-pydantic-core==2.27.2
+pydantic-core==2.27.1
 
 # HTTP client
 httpx==0.28.1
