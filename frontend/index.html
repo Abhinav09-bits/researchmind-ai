@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResearchMind AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    body { background: #0f1117; color: #e2e8f0; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1a1d27; }
+    ::-webkit-scrollbar-thumb { background: #3a3f52; border-radius: 3px; }
+
+    /* Upload zone */
+    .upload-zone { border: 2px dashed #3a3f52; transition: all 0.2s; }
+    .upload-zone:hover, .upload-zone.dragover { border-color: #6366f1; background: rgba(99,102,241,0.05); }
+
+    /* Chat bubble */
+    .chat-bubble { animation: fadeUp 0.3s ease; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+    /* Typing dots */
+    .dot { animation: blink 1.4s infinite; }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+
+    /* Source card */
+    .source-card { border-left: 3px solid #6366f1; }
+
+    /* Gradient text */
+    .grad { background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+    /* Glow button */
+    .btn-primary { background: linear-gradient(135deg, #6366f1, #8b5cf6); transition: all 0.2s; }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(99,102,241,0.3); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* Input focus */
+    .chat-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+
+    /* Sidebar doc item */
+    .doc-item { border-left: 3px solid transparent; transition: all 0.15s; }
+    .doc-item:hover { border-left-color: #6366f1; background: rgba(99,102,241,0.08); }
+
+    /* Source type tabs */
+    .src-tab { color: #64748b; border-bottom: 2px solid transparent; transition: all 0.15s; cursor: pointer; padding: 4px 8px; font-size: 11px; }
+    .src-tab:hover { color: #94a3b8; }
+    .src-tab.active { color: #818cf8; border-bottom-color: #6366f1; }
+    .src-panel { display: none; }
+    .src-panel.active { display: block; }
+
+    /* Search mode toggle */
+    .mode-btn { background: #1a1d27; color: #64748b; border: 1px solid #2a2d3a; transition: all 0.15s; cursor: pointer; }
+    .mode-btn:hover { color: #94a3b8; border-color: #3a3f52; }
+    .active-mode { background: rgba(99,102,241,0.15) !important; color: #818cf8 !important; border-color: #6366f1 !important; }
+
+    /* Rerank toggle */
+    .rerank-btn { background: #1a1d27; color: #64748b; border: 1px solid #2a2d3a; transition: all 0.15s; cursor: pointer; }
+    .rerank-on { background: rgba(16,185,129,0.12) !important; color: #34d399 !important; border-color: #10b981 !important; }
+    .rerank-badge { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+
+    /* Confidence & faithfulness badges */
+    .badge-high    { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+    .badge-medium  { background: rgba(234,179,8,0.12);  color: #fbbf24; border: 1px solid rgba(234,179,8,0.3); }
+    .badge-low     { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+    .badge-faithful   { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+    .badge-partial    { background: rgba(234,179,8,0.12);  color: #fbbf24; border: 1px solid rgba(234,179,8,0.3); }
+    .badge-unfaithful { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+  </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+  <!-- ── SIDEBAR ─────────────────────────────────────────────── -->
+  <aside class="w-72 bg-[#13161f] border-r border-[#1e2130] flex flex-col">
+
+    <!-- Logo -->
+    <div class="p-5 border-b border-[#1e2130]">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg btn-primary flex items-center justify-center text-white text-sm font-bold">R</div>
+        <div>
+          <h1 class="font-semibold text-white text-sm">ResearchMind AI</h1>
+          <p class="text-xs text-slate-500">RAG Research Assistant</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Source Section -->
+    <div class="p-4 border-b border-[#1e2130]">
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Add Source</p>
+
+      <!-- Source type tabs -->
+      <div class="flex gap-1 mb-3 border-b border-[#1e2130]">
+        <button class="src-tab active" onclick="switchSrcTab('pdf')">📄 PDF</button>
+        <button class="src-tab" onclick="switchSrcTab('web')">🌐 Web</button>
+        <button class="src-tab" onclick="switchSrcTab('github')">🐙 GitHub</button>
+        <button class="src-tab" onclick="switchSrcTab('youtube')">🎥 YouTube</button>
+      </div>
+
+      <!-- PDF panel -->
+      <div id="src-pdf" class="src-panel active">
+        <div id="uploadZone" class="upload-zone rounded-xl p-4 text-center cursor-pointer"
+             onclick="document.getElementById('fileInput').click()"
+             ondragover="handleDragOver(event)"
+             ondragleave="handleDragLeave(event)"
+             ondrop="handleDrop(event)">
+          <div class="text-xl mb-1">📄</div>
+          <p class="text-xs text-slate-400">Drop PDF or <span class="text-indigo-400 font-medium">browse</span></p>
+          <p class="text-xs text-slate-600 mt-0.5">Max 50MB</p>
+        </div>
+        <input type="file" id="fileInput" accept=".pdf" class="hidden" onchange="handleFileSelect(event)" />
+      </div>
+
+      <!-- Web panel -->
+      <div id="src-web" class="src-panel">
+        <input id="webUrl" type="url" placeholder="https://example.com/article"
+               class="w-full bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 mb-2" />
+        <button onclick="ingestWeb()" class="w-full btn-primary text-white rounded-lg px-3 py-2 text-xs font-medium">Index Page</button>
+      </div>
+
+      <!-- GitHub panel -->
+      <div id="src-github" class="src-panel">
+        <input id="githubRepo" type="text" placeholder="owner/repo-name"
+               class="w-full bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 mb-2" />
+        <input id="githubBranch" type="text" placeholder="Branch (default: main)"
+               class="w-full bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 mb-2" />
+        <input id="githubToken" type="password" placeholder="GitHub token (optional, avoids rate limit)"
+               class="w-full bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 mb-2" />
+        <button onclick="ingestGitHub()" class="w-full btn-primary text-white rounded-lg px-3 py-2 text-xs font-medium">Index Repo</button>
+      </div>
+
+      <!-- YouTube panel -->
+      <div id="src-youtube" class="src-panel">
+        <input id="youtubeUrl" type="url" placeholder="https://youtube.com/watch?v=..."
+               class="w-full bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 mb-2" />
+        <button onclick="ingestYouTube()" class="w-full btn-primary text-white rounded-lg px-3 py-2 text-xs font-medium">Index Transcript</button>
+      </div>
+
+      <!-- Shared status indicator -->
+      <div id="uploadStatus" class="hidden mt-3">
+        <div class="flex items-center gap-2 p-3 rounded-lg bg-[#1a1d27]">
+          <div id="uploadIcon" class="text-lg">⏳</div>
+          <div class="flex-1 min-w-0">
+            <p id="uploadFileName" class="text-xs font-medium text-white truncate"></p>
+            <p id="uploadMsg" class="text-xs text-slate-400 mt-0.5"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Indexed Documents -->
+    <div class="flex-1 overflow-y-auto p-4">
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Knowledge Base</p>
+      <div id="docList" class="space-y-1">
+        <p class="text-xs text-slate-600 italic">No documents yet</p>
+      </div>
+    </div>
+
+    <!-- Analytics Panel -->
+    <div class="p-4 border-t border-[#1e2130]">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Analytics</p>
+        <button onclick="loadAnalytics()" class="text-xs text-slate-600 hover:text-slate-400 transition-colors">↻ refresh</button>
+      </div>
+      <div id="analyticsPanel" class="text-xs text-slate-600 italic">No queries yet</div>
+      <div class="flex justify-between text-xs text-slate-500 mt-3 pt-3 border-t border-[#1e2130]">
+        <span>Docs: <span id="docCount" class="text-slate-300">0</span></span>
+        <span>Chunks: <span id="chunkCount" class="text-slate-300">0</span></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CHAT AREA ──────────────────────────────────────── -->
+  <main class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- Top bar -->
+    <div class="h-14 border-b border-[#1e2130] bg-[#13161f] flex items-center px-6 justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+        <span class="text-sm text-slate-400">Connected to Qdrant Cloud</span>
+      </div>
+      <button onclick="clearChat()" class="text-xs text-slate-500 hover:text-slate-300 transition-colors">Clear chat</button>
+    </div>
+
+    <!-- Messages -->
+    <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-6">
+
+      <!-- Welcome message -->
+      <div class="flex justify-center">
+        <div class="text-center max-w-md">
+          <div class="text-4xl mb-4">🧠</div>
+          <h2 class="text-xl font-semibold text-white mb-2">Welcome to <span class="grad">ResearchMind AI</span></h2>
+          <p class="text-sm text-slate-400">Upload a PDF in the sidebar, then ask me anything about it. I'll answer with citations from the source.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Input Area -->
+    <div class="border-t border-[#1e2130] bg-[#13161f] p-4">
+      <!-- Search mode toggle + rerank toggle -->
+      <div class="flex justify-center items-center gap-2 mb-3 flex-wrap">
+        <div class="flex gap-1">
+          <button onclick="setMode('hybrid')"   id="mode-hybrid"   class="mode-btn active-mode px-3 py-1 text-xs rounded-full">⚡ Hybrid</button>
+          <button onclick="setMode('semantic')" id="mode-semantic" class="mode-btn px-3 py-1 text-xs rounded-full">🧠 Semantic</button>
+          <button onclick="setMode('keyword')"  id="mode-keyword"  class="mode-btn px-3 py-1 text-xs rounded-full">🔑 Keyword</button>
+        </div>
+        <div class="w-px h-4 bg-[#2a2d3a]"></div>
+        <button onclick="toggleRerank()" id="rerank-btn" class="rerank-btn rerank-on px-3 py-1 text-xs rounded-full" title="Cross-encoder reranking: retrieve 20, rerank to 5">✦ Rerank ON</button>
+      </div>
+      <div class="flex gap-3 items-end max-w-4xl mx-auto">
+        <div class="flex-1 relative">
+          <textarea
+            id="questionInput"
+            rows="1"
+            placeholder="Ask a question about your documents..."
+            class="chat-input w-full bg-[#1a1d27] border border-[#2a2d3a] rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 resize-none"
+            onkeydown="handleKeyDown(event)"
+            oninput="autoResize(this)"
+          ></textarea>
+        </div>
+        <button id="sendBtn" onclick="sendQuery()" class="btn-primary text-white rounded-xl px-5 py-3 text-sm font-medium flex items-center gap-2 whitespace-nowrap">
+          <span>Ask AI</span>
+          <span>→</span>
+        </button>
+      </div>
+      <p class="text-center text-xs text-slate-600 mt-2">Press <kbd class="bg-[#1e2130] px-1.5 py-0.5 rounded text-slate-400">Enter</kbd> to send · <kbd class="bg-[#1e2130] px-1.5 py-0.5 rounded text-slate-400">Shift+Enter</kbd> for new line</p>
+    </div>
+  </main>
+
+<script>
+const API = window.API_URL || 'http://localhost:8001/api/v1';
+let documents = [];
+let totalChunks = 0;
+let currentMode = 'hybrid';
+let rerankEnabled = true;
+
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active-mode'));
+  document.getElementById(`mode-${mode}`).classList.add('active-mode');
+}
+
+function toggleRerank() {
+  rerankEnabled = !rerankEnabled;
+  const btn = document.getElementById('rerank-btn');
+  if (rerankEnabled) {
+    btn.textContent = '✦ Rerank ON';
+    btn.classList.add('rerank-on');
+  } else {
+    btn.textContent = '✦ Rerank OFF';
+    btn.classList.remove('rerank-on');
+  }
+}
+
+// ── SOURCE TABS ────────────────────────────────────────────────
+function switchSrcTab(tab) {
+  document.querySelectorAll('.src-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.src-panel').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById(`src-${tab}`).classList.add('active');
+}
+
+// ── FILE UPLOAD ────────────────────────────────────────────────
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.add('dragover');
+}
+function handleDragLeave(e) {
+  document.getElementById('uploadZone').classList.remove('dragover');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') uploadFile(file);
+  else showToast('Please drop a PDF file', 'error');
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) uploadFile(file);
+}
+
+async function uploadFile(file) {
+  const status = document.getElementById('uploadStatus');
+  const icon = document.getElementById('uploadIcon');
+  const name = document.getElementById('uploadFileName');
+  const msg = document.getElementById('uploadMsg');
+
+  status.classList.remove('hidden');
+  icon.textContent = '⏳';
+  name.textContent = file.name;
+  msg.textContent = 'Extracting & indexing...';
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch(`${API}/documents/upload`, { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.detail || 'Upload failed');
+
+    icon.textContent = '✅';
+    msg.textContent = `${data.total_chunks} chunks indexed`;
+
+    // Add to sidebar
+    documents.push({ name: file.name, chunks: data.total_chunks, id: data.document_id, type: 'pdf' });
+    totalChunks += data.total_chunks;
+    renderDocList();
+    showToast(`"${file.name}" indexed successfully!`, 'success');
+
+    // Add system message to chat
+    appendSystemMessage(`📄 "${file.name}" has been indexed (${data.total_chunks} chunks). You can now ask questions about it.`);
+
+  } catch (err) {
+    icon.textContent = '❌';
+    msg.textContent = err.message;
+    showToast(err.message, 'error');
+  }
+
+  document.getElementById('fileInput').value = '';
+}
+
+// ── SOURCE INGESTION ───────────────────────────────────────────
+function showStatus(icon, name, msg) {
+  const status = document.getElementById('uploadStatus');
+  status.classList.remove('hidden');
+  document.getElementById('uploadIcon').textContent = icon;
+  document.getElementById('uploadFileName').textContent = name;
+  document.getElementById('uploadMsg').textContent = msg;
+}
+
+async function ingestWeb() {
+  const url = document.getElementById('webUrl').value.trim();
+  if (!url) return showToast('Enter a URL first', 'error');
+  showStatus('⏳', url, 'Scraping & indexing...');
+  try {
+    const res = await fetch(`${API}/sources/web`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed');
+    showStatus('✅', url, `${data.total_chunks} chunks indexed`);
+    documents.push({ name: url, chunks: data.total_chunks, id: data.document_id, type: 'web' });
+    totalChunks += data.total_chunks;
+    renderDocList();
+    appendSystemMessage(`🌐 Web page indexed: "${url}" (${data.total_chunks} chunks)`);
+    document.getElementById('webUrl').value = '';
+  } catch(err) {
+    showStatus('❌', url, err.message);
+    showToast(err.message, 'error');
+  }
+}
+
+async function ingestGitHub() {
+  const repo = document.getElementById('githubRepo').value.trim();
+  const branch = document.getElementById('githubBranch').value.trim() || 'main';
+  const token = document.getElementById('githubToken').value.trim() || null;
+  if (!repo) return showToast('Enter a repo (owner/repo)', 'error');
+  showStatus('⏳', repo, `Indexing @${branch}...`);
+  try {
+    const res = await fetch(`${API}/sources/github`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ repo, branch, github_token: token }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed');
+    showStatus('✅', repo, `${data.total_chunks} chunks indexed`);
+    documents.push({ name: repo, chunks: data.total_chunks, id: data.document_id, type: 'github' });
+    totalChunks += data.total_chunks;
+    renderDocList();
+    appendSystemMessage(`🐙 GitHub repo indexed: "${repo}@${branch}" (${data.total_chunks} chunks)`);
+    document.getElementById('githubRepo').value = '';
+  } catch(err) {
+    showStatus('❌', repo, err.message);
+    showToast(err.message, 'error');
+  }
+}
+
+async function ingestYouTube() {
+  const url = document.getElementById('youtubeUrl').value.trim();
+  if (!url) return showToast('Enter a YouTube URL first', 'error');
+  showStatus('⏳', url, 'Fetching transcript...');
+  try {
+    const res = await fetch(`${API}/sources/youtube`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed');
+    showStatus('✅', url, `${data.total_chunks} chunks indexed`);
+    documents.push({ name: url, chunks: data.total_chunks, id: data.document_id, type: 'youtube' });
+    totalChunks += data.total_chunks;
+    renderDocList();
+    appendSystemMessage(`🎥 YouTube video indexed (${data.total_chunks} chunks)`);
+    document.getElementById('youtubeUrl').value = '';
+  } catch(err) {
+    showStatus('❌', url, err.message);
+    showToast(err.message, 'error');
+  }
+}
+
+function renderDocList() {
+  const list = document.getElementById('docList');
+  document.getElementById('docCount').textContent = documents.length;
+  document.getElementById('chunkCount').textContent = totalChunks;
+
+  if (documents.length === 0) {
+    list.innerHTML = '<p class="text-xs text-slate-600 italic">No documents yet</p>';
+    return;
+  }
+  const icons = { pdf: '📄', web: '🌐', github: '🐙', youtube: '🎥' };
+  list.innerHTML = documents.map(doc => `
+    <div class="doc-item rounded-lg px-3 py-2 cursor-default">
+      <p class="text-xs font-medium text-white truncate">${icons[doc.type] || '📄'} ${doc.name}</p>
+      <p class="text-xs text-slate-500 mt-0.5">${doc.chunks} chunks · ${doc.type || 'pdf'}</p>
+    </div>
+  `).join('');
+}
+
+// ── QUERY ──────────────────────────────────────────────────────
+function handleKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendQuery(); }
+}
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+async function sendQuery() {
+  const input = document.getElementById('questionInput');
+  const question = input.value.trim();
+  if (!question) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('sendBtn').disabled = true;
+
+  appendUserMessage(question);
+  const typingId = appendTyping();
+
+  try {
+    const res = await fetch(`${API}/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, preprocess_query: true, search_mode: currentMode, enable_reranking: rerankEnabled }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Query failed');
+
+    removeTyping(typingId);
+    appendAIMessage(data);
+    loadAnalytics();
+  } catch (err) {
+    removeTyping(typingId);
+    appendErrorMessage(err.message);
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+}
+
+// ── MESSAGE RENDERERS ──────────────────────────────────────────
+function appendUserMessage(text) {
+  const chat = document.getElementById('chatMessages');
+  chat.innerHTML += `
+    <div class="chat-bubble flex justify-end">
+      <div class="max-w-xl bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed">
+        ${escHtml(text)}
+      </div>
+    </div>`;
+  scrollBottom();
+}
+
+function appendAIMessage(data) {
+  const chat = document.getElementById('chatMessages');
+  const sourcesHtml = data.sources.length > 0 ? `
+    <div class="mt-4 space-y-2">
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Sources</p>
+      ${data.sources.map((s, i) => `
+        <details class="source-card bg-[#1a1d27] rounded-lg overflow-hidden">
+          <summary class="px-3 py-2 cursor-pointer text-xs font-medium text-indigo-400 flex items-center justify-between hover:bg-[#1e2130]">
+            <span>📄 ${escHtml(s.source_file)} · Page ${s.page_number ?? '?'}</span>
+            <span class="text-slate-500 ml-2">Score: ${(s.similarity_score * 100).toFixed(0)}%</span>
+          </summary>
+          <div class="px-3 py-2 text-xs text-slate-400 border-t border-[#2a2d3a] leading-relaxed max-h-32 overflow-y-auto">
+            ${escHtml(s.content)}
+          </div>
+        </details>
+      `).join('')}
+    </div>` : '';
+
+  chat.innerHTML += `
+    <div class="chat-bubble flex gap-3">
+      <div class="w-7 h-7 rounded-full btn-primary flex-shrink-0 flex items-center justify-center text-white text-xs font-bold mt-1">R</div>
+      <div class="flex-1 max-w-3xl">
+        <div class="bg-[#1a1d27] rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed text-slate-200">
+          ${formatAnswer(data.answer)}
+        </div>
+        ${sourcesHtml}
+        <div class="flex flex-wrap gap-2 mt-1.5 ml-1 text-xs items-center">
+          <span class="text-slate-600">${data.total_sources_found} sources · ${data.processing_time_ms.toFixed(0)}ms · <span class="text-indigo-500/70">${data.search_mode ?? 'hybrid'}</span></span>
+          ${data.reranking_applied
+            ? `<span class="rerank-badge px-2 py-0.5 rounded-full">✦ reranked</span>`
+            : ''}
+          ${data.confidence
+            ? `<span class="px-2 py-0.5 rounded-full badge-${data.confidence.level}">${data.confidence.label}</span>`
+            : ''}
+          ${data.faithfulness && data.faithfulness.checked
+            ? `<span class="px-2 py-0.5 rounded-full ${faithBadgeClass(data.faithfulness.verdict)}" title="${escHtml(data.faithfulness.explanation)}">${faithLabel(data.faithfulness.verdict)}</span>`
+            : ''}
+          ${data.preprocessed_question && data.preprocessed_question !== data.question
+            ? `<span class="text-slate-500">🔍 "${escHtml(data.preprocessed_question)}"</span>`
+            : ''}
+        </div>
+      </div>
+    </div>`;
+  scrollBottom();
+}
+
+function appendTyping() {
+  const id = 'typing-' + Date.now();
+  document.getElementById('chatMessages').innerHTML += `
+    <div id="${id}" class="chat-bubble flex gap-3">
+      <div class="w-7 h-7 rounded-full btn-primary flex-shrink-0 flex items-center justify-center text-white text-xs font-bold">R</div>
+      <div class="bg-[#1a1d27] rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1">
+        <span class="dot w-1.5 h-1.5 bg-slate-400 rounded-full inline-block"></span>
+        <span class="dot w-1.5 h-1.5 bg-slate-400 rounded-full inline-block"></span>
+        <span class="dot w-1.5 h-1.5 bg-slate-400 rounded-full inline-block"></span>
+      </div>
+    </div>`;
+  scrollBottom();
+  return id;
+}
+
+function removeTyping(id) {
+  document.getElementById(id)?.remove();
+}
+
+function appendErrorMessage(msg) {
+  document.getElementById('chatMessages').innerHTML += `
+    <div class="chat-bubble flex gap-3">
+      <div class="w-7 h-7 rounded-full bg-red-500 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold">!</div>
+      <div class="bg-red-900/30 border border-red-800/50 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-red-300">
+        ${escHtml(msg)}
+      </div>
+    </div>`;
+  scrollBottom();
+}
+
+function appendSystemMessage(msg) {
+  document.getElementById('chatMessages').innerHTML += `
+    <div class="chat-bubble flex justify-center">
+      <div class="bg-[#1a1d27] border border-[#2a2d3a] rounded-full px-4 py-1.5 text-xs text-slate-400">
+        ${msg}
+      </div>
+    </div>`;
+  scrollBottom();
+}
+
+// ── FAITHFULNESS HELPERS ───────────────────────────────────────
+function faithBadgeClass(verdict) {
+  if (verdict === 'FAITHFUL') return 'badge-faithful';
+  if (verdict === 'PARTIALLY_FAITHFUL') return 'badge-partial';
+  if (verdict === 'NOT_FAITHFUL') return 'badge-unfaithful';
+  return 'badge-medium';
+}
+function faithLabel(verdict) {
+  if (verdict === 'FAITHFUL') return '✓ Faithful';
+  if (verdict === 'PARTIALLY_FAITHFUL') return '~ Partial';
+  if (verdict === 'NOT_FAITHFUL') return '✗ Hallucination';
+  return '? Unchecked';
+}
+
+// ── ANALYTICS ──────────────────────────────────────────────────
+async function loadAnalytics() {
+  try {
+    const res = await fetch(`${API}/analytics/stats`);
+    const d = await res.json();
+    if (!res.ok) return;
+
+    const panel = document.getElementById('analyticsPanel');
+    if (!panel) return;
+
+    const conf = d.confidence_distribution;
+    const faith = d.faithfulness_distribution;
+    panel.innerHTML = `
+      <div class="grid grid-cols-3 gap-2 mb-3">
+        <div class="bg-[#1a1d27] rounded-lg p-2 text-center">
+          <p class="text-lg font-bold text-white">${d.total_queries}</p>
+          <p class="text-xs text-slate-500">Queries</p>
+        </div>
+        <div class="bg-[#1a1d27] rounded-lg p-2 text-center">
+          <p class="text-lg font-bold text-white">${d.avg_processing_time_ms.toFixed(0)}ms</p>
+          <p class="text-xs text-slate-500">Avg time</p>
+        </div>
+        <div class="bg-[#1a1d27] rounded-lg p-2 text-center">
+          <p class="text-lg font-bold text-white">${d.avg_sources_found.toFixed(1)}</p>
+          <p class="text-xs text-slate-500">Avg sources</p>
+        </div>
+      </div>
+      <p class="text-xs text-slate-500 mb-1">Confidence</p>
+      <div class="flex gap-1 mb-3 text-xs">
+        <span class="badge-high px-2 py-0.5 rounded-full">🟢 ${conf.high}</span>
+        <span class="badge-medium px-2 py-0.5 rounded-full">🟡 ${conf.medium}</span>
+        <span class="badge-low px-2 py-0.5 rounded-full">🔴 ${conf.low}</span>
+      </div>
+      <p class="text-xs text-slate-500 mb-1">Faithfulness</p>
+      <div class="flex gap-1 mb-3 text-xs flex-wrap">
+        <span class="badge-faithful px-2 py-0.5 rounded-full">✓ ${faith.FAITHFUL}</span>
+        <span class="badge-partial px-2 py-0.5 rounded-full">~ ${faith.PARTIALLY_FAITHFUL}</span>
+        <span class="badge-unfaithful px-2 py-0.5 rounded-full">✗ ${faith.NOT_FAITHFUL}</span>
+      </div>
+      ${d.recent_queries.length > 0 ? `
+      <p class="text-xs text-slate-500 mb-1">Recent</p>
+      <div class="space-y-1">
+        ${d.recent_queries.slice(0,5).map(q => `
+          <div class="bg-[#1a1d27] rounded px-2 py-1.5">
+            <p class="text-xs text-white truncate">${escHtml(q.query)}</p>
+            <p class="text-xs text-slate-500">${q.confidence} · ${q.faithfulness} · ${q.time_ms.toFixed(0)}ms</p>
+          </div>`).join('')}
+      </div>` : ''}
+    `;
+  } catch(e) { /* analytics optional */ }
+}
+
+// ── UTILITIES ──────────────────────────────────────────────────
+function formatAnswer(text) {
+  return escHtml(text)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[Source:(.*?)\]/g, '<span class="text-indigo-400 font-medium">[Source:$1]</span>')
+    .replace(/\n/g, '<br>');
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function scrollBottom() {
+  const chat = document.getElementById('chatMessages');
+  setTimeout(() => chat.scrollTop = chat.scrollHeight, 50);
+}
+
+function clearChat() {
+  document.getElementById('chatMessages').innerHTML = `
+    <div class="flex justify-center">
+      <div class="text-center max-w-md">
+        <div class="text-4xl mb-4">🧠</div>
+        <h2 class="text-xl font-semibold text-white mb-2">Welcome to <span class="grad">ResearchMind AI</span></h2>
+        <p class="text-sm text-slate-400">Upload a PDF in the sidebar, then ask me anything about it.</p>
+      </div>
+    </div>`;
+}
+
+function showToast(msg, type) {
+  const toast = document.createElement('div');
+  toast.className = `fixed bottom-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50 transition-all
+    ${type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+}
+</script>
+</body>
+</html>
